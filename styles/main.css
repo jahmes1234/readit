@@ -238,8 +238,8 @@ button {
     /* ---------- Gallery View (desktop/tablet) ---------- */
   .post-gallery {
     display: flex;
-    flex-direction: column; /* stack vertically */
-    gap: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
     margin: 10px 0;
   }
 
