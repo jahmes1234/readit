@@ -7,6 +7,11 @@ import {subreddits} from "./subredditList";
 
 declare var axios: any
 
+declare var Hls: {
+  isSupported(): boolean;
+  new (): { loadSource(u: string): void; attachMedia(m: HTMLMediaElement): void };
+}
+
 function isDebugMode(): boolean {
     // Won't support ipv6 loopback
     const url = new URL(document.URL);
@@ -815,6 +820,52 @@ function showPostFromData(response: ApiObj) {
         postSection.append(div);
     }
 
+	// ---------- VIDEO (audio via HLS when available) ----------
+  type RV = { fallback_url: string; hls_url?: string; dash_url?: string } | null | undefined;
+  const redditVideo: RV =
+    response?.data?.[0]?.data?.children?.[0]?.data?.secure_media?.reddit_video;
+	response?.data[0]?.data?.children[0]?.data?.secure_media?.reddit_video;
+
+  if (redditVideo && redditVideo !== ('null' as unknown)) {
+    const video = document.createElement('video');
+    video.classList.add('post-video');
+    video.setAttribute('controls', '');
+    (video as any).playsInline = true; // better UX on iOS
+    video.crossOrigin = 'anonymous';
+
+    const hlsUrl = redditVideo.hls_url;
+
+    if (hlsUrl) {
+      // 1) Use hls.js if supported
+      if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(hlsUrl);
+        hls.attachMedia(video);
+      }
+      // 2) Safari/iOS: native HLS
+      else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = hlsUrl;
+      }
+      // 3) Fallback: Reddit's MP4 (video-only, no audio)
+      else {
+        const source = document.createElement('source');
+        source.src = redditVideo.fallback_url;
+        video.appendChild(source);
+      }
+    } else {
+      // No HLS provided; fallback is video-only
+      const source = document.createElement('source');
+      source.src = redditVideo.fallback_url;
+      video.appendChild(source);
+    }
+
+    if (localStorage.getItem('hideMedia') == 'false' || localStorage.getItem('hideMedia') == null) {
+      postSection.append(video);
+    }
+  }
+  // ---------------------------------------------------------
+
+	/*
     const redditVideo = response?.data[0]?.data?.children[0]?.data?.secure_media?.reddit_video;
     if (redditVideo !== undefined && redditVideo !== "null") {
         const video = document.createElement('video');
@@ -827,7 +878,8 @@ function showPostFromData(response: ApiObj) {
             postSection.append(video);
         }
     }
-    
+    */
+	
     const postDetails = getPostDetails(response)
     postSection.append(...postDetails)
     postSection.append(document.createElement('hr'));
