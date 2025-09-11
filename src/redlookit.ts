@@ -773,7 +773,11 @@ function showPostFromData(response: ApiObj) {
     } catch (e) { 
         console.error(e);
     }
-    
+
+	// ✅ define once, reuse everywhere
+  	const postData = response?.data?.[0]?.data?.children?.[0]?.data;
+  	if (!postData) return; // nothing to render safely
+	
     const comments = response.data[1].data.children;
     const author = document.createElement('span');
     author.append(`Posted by u/${response.data[0].data.children[0].data.author}`);
