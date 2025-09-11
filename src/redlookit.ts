@@ -787,7 +787,9 @@ function showPostFromData(response: ApiObj) {
     titleLink.append(titleText);
     title.classList.add('post-section-title');
     postSection.append(title);
-    if (response.data[0].data.children[0].data.post_hint === 'image') {
+    
+	 // ---------- SINGLE IMAGE ----------
+	if (response.data[0].data.children[0].data.post_hint === 'image') {
         let image = document.createElement('img');
         image.src = response.data[0].data.children[0].data.url_overridden_by_dest;
         image.classList.add('post-image');
@@ -795,13 +797,39 @@ function showPostFromData(response: ApiObj) {
             postSection.append(image);
         }
     } 
-    if (response.data[0].data.children[0].data.selftext !== '' && !response.data[0].data.children[0].data.selftext.includes('preview')) {
+    
+	// ---------- GALLERY VIEW ----------
+  if (postData.gallery_data && postData.media_metadata) {
+    const galleryWrapper = document.createElement('div');
+    galleryWrapper.classList.add('post-gallery');
+
+    postData.gallery_data.items.forEach((item: { media_id: string }) => {
+      const mediaId = item.media_id;
+      const meta = postData.media_metadata[mediaId];
+      if (meta && meta.s) {
+        const imgSrc = meta.s.u.replace(/&amp;/g, '&');
+        const img = document.createElement('img');
+        img.src = imgSrc;
+        img.classList.add('gallery-image');
+        galleryWrapper.appendChild(img);
+      }
+    });
+
+    if (localStorage.getItem('hideMedia') == 'false' || localStorage.getItem('hideMedia') == null) {
+      postSection.append(galleryWrapper);
+    }
+  }
+	
+	// ---------- SELFTEXT ----------
+	if (response.data[0].data.children[0].data.selftext !== '' && !response.data[0].data.children[0].data.selftext.includes('preview')) {
         const selftext = document.createElement('div');
         selftext.innerHTML = decodeHtml(response.data[0].data.children[0].data.selftext_html);
         selftext.classList.add("usertext");
         postSection.append(selftext);
     }
-    if (!response.data[0].data.children[0].data.is_self && !response.data[0].data.children[0].data.is_reddit_media_domain) {
+   
+	// ---------- EXTERNAL LINK ----------
+	if (!response.data[0].data.children[0].data.is_self && !response.data[0].data.children[0].data.is_reddit_media_domain) {
         const div = document.createElement('div');
         const thumbnail = document.createElement('img');
         const link = document.createElement('a');
