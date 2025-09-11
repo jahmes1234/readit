@@ -13,7 +13,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/one-loop/redlookit.git"
+    "url": "git+https://github.com/jahmes1234/readit.git"
   },
   "author": "",
   "license": "MIT",
@@ -30,9 +30,9 @@
     "webpack-dev-server": "^4.11.1"
   },
   "bugs": {
-    "url": "https://github.com/one-loop/redlookit/issues"
+    "url": "https://jahmes1234.github.io/readit/issues"
   },
-  "homepage": "https://one-loop.github.io/redlookit/",
+  "homepage": "https://jahmes1234.github.io/readit/",
   "keywords": [],
   "dependencies": {
     "file-loader": "^6.2.0",
