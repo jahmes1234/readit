@@ -486,10 +486,51 @@ function displayCommentsRecursive(parentElement: HTMLElement, listing: ApiObj[],
 
             parentElement.appendChild(commentElement);
             const prom: Promise<HTMLElement> = createComment(comment, {ppBuffer: ppBuffer, domNode: commentElement});
-            prom.catch( (reason) => {
+            
+			
+			
+			// NEW CODE: Handle the successful promise and inject images
+            prom.then(() => {
+                // Retrieve the comment text (assumes Reddit API structure where markdown is in data.body)
+                const bodyText = comment.data.body || "";
+                
+                // Regex to find standard image URLs in the text
+                const imageUrlRegex = /(https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp))/gi;
+                const matches = bodyText.match(imageUrlRegex);
+
+                if (matches) {
+                    // Deduplicate in case the user pasted the same link twice
+                    const uniqueUrls = Array.from(new Set(matches));
+                    
+                    const imgContainer = document.createElement("div");
+                    imgContainer.classList.add("comment-inline-images");
+
+                    uniqueUrls.forEach(url => {
+                        const img = document.createElement("img");
+                        img.src = url;
+                        // Basic styling to prevent images from breaking your layout
+                        img.style.maxWidth = "50%";
+                        img.style.display = "block";
+                        img.style.marginTop = "10px";
+                        img.style.borderRadius = "4px"; 
+                        
+                        imgContainer.appendChild(img);
+                    });
+                    
+                    commentElement.appendChild(imgContainer);
+                }
+            }).catch( (reason) => {
+                console.error("There was a problem drawing this comment on the page", {"reason":reason, "comment data": comment, "profile picture": ppBuffer, "anchor element on the page=": commentElement});
+            });
+			
+			
+			/*
+			prom.catch( (reason) => {
                 console.error("There was a problem drawing this comment on the page", {"reason":reason, "comment data": comment, "profile picture": ppBuffer, "anchor element on the page=": commentElement});
             })
+			*/
 
+			
             if (comment.data.replies) {
                 displayCommentsRecursive(commentElement, comment.data.replies.data.children, {
                     indent: indent + 10, 
