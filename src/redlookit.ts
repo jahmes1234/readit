@@ -495,7 +495,7 @@ function displayCommentsRecursive(parentElement: HTMLElement, listing: ApiObj[],
                 const bodyText = comment.data.body || "";
                 
                 // Regex to find standard image URLs in the text
-                const imageUrlRegex = /(https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp))/gi;
+				const imageUrlRegex = /(https?:\/\/[^\s"'<>]+\.(?:png|jpg|jpeg|gif|webp)[^\s"'<>]*)/gi;
                 const matches = bodyText.match(imageUrlRegex);
 
                 if (matches) {
