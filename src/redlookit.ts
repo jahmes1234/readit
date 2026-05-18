@@ -112,7 +112,7 @@ function showSubreddit(subreddit: string) {
     section.classList.add('post')
     strictQuerySelector('.post-header-button.sort').id = subreddit;
 
-    axios.get(`${redditBaseURL}/r/${subreddit}.json?limit=150`)
+    axios.get(`${redditBaseURL}/r/${subreddit}.json?limit=250`)
         .then((posts: Listing<Post>) => {
             const responseData = posts.data.data.children;
             axios.get(`${redditBaseURL}/r/${subreddit}/about.json`)
