@@ -467,6 +467,7 @@ type CommentBuilderOptions = {
     commentsEncounteredSoFar: Set<string>    
 };
 
+/*
 function displayCommentsRecursive(parentElement: HTMLElement, listing: ApiObj[],  {post, indent=0, ppBuffer=[], commentsEncounteredSoFar=new Set()}: CommentBuilderOptions) {
     if (listing.length === 0) {
         return;
@@ -509,18 +510,6 @@ function displayCommentsRecursive(parentElement: HTMLElement, listing: ApiObj[],
             
             // Fetch the parent of the "more" listing
             const parentLink = `${redditBaseURL}${post}${data.data.parent_id.slice(3)}`;
-            /*
-                // We used to fetch the comment directly listed by the "more" listing aka data.data.id
-                // But sometimes 'id' was '_' and no children were listed (despite the fact that there was several on the actual website)
-                // If you go back 1 step in the tree to the parent and circle back to the children this way, however, you 
-                //   get around the bug and the children get properly listed
-                // Couldn't tell you why.
-                // If you wish to see the behavior in action, enable this piece of code
-                if (data.data.children.length === 0) {
-                    if (isDebugMode()) console.log("Empty 'more' object?", redditObj);
-                    moreElement.style.backgroundColor = "#ff0000";
-                }
-            */
             
             moreElement.addEventListener("click", () => {
                 moreElement.classList.add("waiting");
@@ -567,6 +556,140 @@ function displayCommentsRecursive(parentElement: HTMLElement, listing: ApiObj[],
         }
     }
 }
+*/
+
+function displayCommentsRecursive(parentElement: HTMLElement, listing: ApiObj[],  {post, indent=0, ppBuffer=[], commentsEncounteredSoFar=new Set()}: CommentBuilderOptions) {
+    if (listing.length === 0) {
+        return;
+    }
+
+    for (const redditObj of listing) {
+        if (redditObj.kind === "t1") {
+            const comment: SnooComment = redditObj as SnooComment;
+            commentsEncounteredSoFar.add(comment.data.id);
+            
+            const commentElement = document.createElement("div");
+            if (indent > 0) {
+                commentElement.classList.add('replied-comment');
+            }
+            parentElement.appendChild(commentElement);
+            
+            const prom: Promise<HTMLElement> = createComment(comment, {ppBuffer: ppBuffer, domNode: commentElement});
+            
+            prom.then(() => {
+                const bodyText = comment.data.body || "";
+                
+                // 1. Find all potential URLs in the text
+                const urlRegex = /(https?:\/\/[^\s"'<>]+)/gi;
+                const matches = bodyText.match(urlRegex);
+
+                if (matches) {
+                    const imgContainer = document.createElement("div");
+                    imgContainer.classList.add("comment-inline-images");
+                    const processedUrls = new Set<string>();
+
+                    matches.forEach(rawUrl => {
+                        // Clean HTML entities (Reddit's &amp; issue)
+                        let url = rawUrl.replace(/&amp;/g, '&');
+                        let finalImageUrl: string | null = null;
+
+                        // Case A: Standard Images & Reddit Previews (with ?width=... params)
+                        if (url.match(/\.(?:png|jpg|jpeg|gif|webp)([?#\s]|$)/i)) {
+                            finalImageUrl = url;
+                        } 
+                        // Case B: Giphy Links (converts page URL to direct GIF URL)
+                        else if (url.includes("giphy.com/gifs/")) {
+                            const pathSegments = url.split('?')[0].split('/');
+                            const giphyId = pathSegments.filter(s => s.length > 0).pop();
+                            if (giphyId) {
+                                finalImageUrl = `https://media.giphy.com/media/${giphyId}/giphy.gif`;
+                            }
+                        }
+
+                        // Render the image if valid and not already processed
+                        if (finalImageUrl && !processedUrls.has(finalImageUrl)) {
+                            processedUrls.add(finalImageUrl);
+                            const img = document.createElement("img");
+                            img.src = finalImageUrl;
+                            
+                            // Styling: Using 100% maxWidth so they take up space but don't overflow
+                            img.style.maxWidth = "100%";
+                            img.style.display = "block";
+                            img.style.marginTop = "10px";
+                            img.style.borderRadius = "4px"; 
+                            
+                            imgContainer.appendChild(img);
+                        }
+                    });
+
+                    if (imgContainer.hasChildNodes()) {
+                        commentElement.appendChild(imgContainer);
+                    }
+                }
+            }).catch( (reason) => {
+                console.error("Problem drawing comment", reason);
+            });
+
+            if (comment.data.replies) {
+                displayCommentsRecursive(commentElement, comment.data.replies.data.children, {
+                    indent: indent + 10, 
+                    ppBuffer: ppBuffer,
+                    post: post,
+                    commentsEncounteredSoFar
+                });
+            }
+
+            if (indent === 0) {
+                parentElement.appendChild(document.createElement('hr'));
+            }
+
+        } else if (redditObj.kind === "more" && post !== undefined) {
+            const data = redditObj as MoreComments;
+            const moreElement = document.createElement("span");
+            moreElement.classList.add("btn-more");
+            
+            const parentLink = `${redditBaseURL}${post}${data.data.parent_id.slice(3)}`;
+            
+            moreElement.addEventListener("click", () => {
+                moreElement.classList.add("waiting");
+                fetch(`${parentLink}.json`)
+                    .catch((e) => {
+                        moreElement.classList.remove("waiting");
+                        console.error(e);
+                    })
+                    .then((response) => {
+                        if (response instanceof Response) {
+                            return response.json()
+                        }
+                    })
+                    .catch((e) => {
+                        console.error(e);
+                    })
+                    .then((data: ApiObj[]) => {
+                        moreElement.remove();
+                        let replies: Listing<SnooComment>;
+                        try {
+                            replies = (data as any)[1].data.children[0].data.replies.data
+                        } catch (e) {
+                            return Promise.reject(e);
+                        }
+                        replies.children = replies.children.filter((v) => {
+                            return !commentsEncounteredSoFar.has(v.data.id)
+                        })
+                        displayCommentsRecursive(parentElement, replies.children, {
+                            indent: indent + 10,
+                            ppBuffer: ppBuffer,
+                            post: post,
+                            commentsEncounteredSoFar
+                        });
+                        return Promise.resolve();
+                    });
+            });
+            parentElement.appendChild(moreElement);
+        }
+    }
+}
+
 
 function displayComments(commentsData, {post}: {post: Permalink}) {
     postSection.classList.add('post-selected');
@@ -895,22 +1018,6 @@ function showPostFromData(response: ApiObj) {
       postSection.append(video);
     }
   }
-  // ---------------------------------------------------------
-
-	/*
-    const redditVideo = response?.data[0]?.data?.children[0]?.data?.secure_media?.reddit_video;
-    if (redditVideo !== undefined && redditVideo !== "null") {
-        const video = document.createElement('video');
-        video.classList.add('post-video');
-        video.setAttribute('controls', '')
-        const source = document.createElement('source');
-        source.src = response.data[0].data.children[0].data.secure_media.reddit_video.fallback_url;
-        video.appendChild(source);
-        if (localStorage.getItem('hideMedia') == 'false' || localStorage.getItem('hideMedia') == null) {
-            postSection.append(video);
-        }
-    }
-    */
 	
     const postDetails = getPostDetails(response)
     postSection.append(...postDetails)
